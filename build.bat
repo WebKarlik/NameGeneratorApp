@@ -75,7 +75,7 @@ if /i "%~1"=="installer" (
 
 echo.
 echo DONE: %CD%\dist\%APP_NAME%\%APP_NAME%.exe
-start "" explorer "dist\%APP_NAME%"
+if not defined CI start "" explorer "dist\%APP_NAME%"
 pause
 endlocal
 exit /b 0

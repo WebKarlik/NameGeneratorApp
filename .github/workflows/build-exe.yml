@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -18,13 +21,44 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Build app image (NameGenerator.exe)
-        shell: cmd
-        run: echo.| build.bat
+      - name: Install WiX Toolset 3 (for the installer)
+        shell: pwsh
+        run: |
+          $wix = Get-ChildItem 'C:\Program Files (x86)' -Directory -Filter 'WiX Toolset v3*' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $wix) {
+            choco install wixtoolset --version 3.14.1 -y --no-progress
+            $wix = Get-ChildItem 'C:\Program Files (x86)' -Directory -Filter 'WiX Toolset v3*' | Select-Object -First 1
+          }
+          "$($wix.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
-      - name: Upload portable build
+      - name: Build app image and installer
+        shell: cmd
+        run: echo.| build.bat installer
+
+      - name: Pack portable ZIP
+        shell: pwsh
+        run: Compress-Archive -Path dist/NameGenerator -DestinationPath dist/NameGenerator-portable.zip
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: NameGenerator-windows
-          path: dist/NameGenerator
+          path: |
+            dist/NameGenerator-portable.zip
+            dist/NameGenerator-*.exe
           if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: NameGenerator ${{ github.ref_name }}
+          body: |
+            ## Скачать
+            - **NameGenerator-1.0.0.exe** — установщик (ярлыки в меню «Пуск» и на рабочем столе).
+            - **NameGenerator-portable.zip** — версия без установки: распакуйте и запустите `NameGenerator\NameGenerator.exe`.
+
+            Java устанавливать не нужно — она встроена в программу.
+          files: |
+            dist/NameGenerator-portable.zip
+            dist/NameGenerator-*.exe
