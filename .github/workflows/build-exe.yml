@@ -2,7 +2,7 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/beautiful-shannon-295lc7']
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -49,10 +49,14 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          name: NameGenerator ${{ github.ref_name }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.0.0' }}
+          target_commitish: ${{ github.sha }}
+          name: NameGenerator ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.0.0' }}
+          make_latest: true
+          overwrite_files: true
           body: |
             ## Скачать
             - **NameGenerator-1.0.0.exe** — установщик (ярлыки в меню «Пуск» и на рабочем столе).
